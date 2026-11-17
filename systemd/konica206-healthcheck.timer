@@ -1,0 +1,11 @@
+[Unit]
+Description=Periodic health check for the Konica 206 PAPPL IPP endpoint
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=konica206-healthcheck.service
+Persistent=false
+
+[Install]
+WantedBy=timers.target

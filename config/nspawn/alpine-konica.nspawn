@@ -1,0 +1,28 @@
+# systemd-nspawn machine configuration for the Konica bizhub 206 PAPPL app.
+# Installed by scripts/install-host-integration.sh to
+#   /etc/systemd/nspawn/alpine-konica.nspawn
+#
+# There is intentionally no [Exec] section here: the host systemd drop-in
+# (config/systemd/systemd-nspawn@alpine-konica.service.d/override.conf) passes
+# the PAPPL executable as the container's main process. That keeps a single,
+# reviewable service design and avoids booting a second (OpenRC) init system.
+
+[System]
+Hostname=alpine-konica
+
+[Network]
+# Share the host network namespace: PAPPL binds 127.0.0.1:8001 so the Fedora
+# host's CUPS can reach it through a driverless IPP proxy queue. No veth,
+# no private network, no LAN exposure of the (unauthenticated) web interface.
+Private=no
+VirtualEthernet=no
+
+[Files]
+# USB device tree only (the printer is 132b:232b). The host udev rule in
+# udev/70-konica206.rules sets permissions that survive unplug/replug.
+# Do not widen this to the whole of /dev, /proc or /sys.
+Bind=/dev/bus/usb
+# libusb enumerates devices through sysfs; expose only that subtree, read-only.
+# If the target kernel/nspawn version already exposes USB devices through its
+# own sysfs mount, this bind is harmless and can be dropped after testing.
+BindReadOnly=/sys/bus/usb/devices

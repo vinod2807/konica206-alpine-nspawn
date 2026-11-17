@@ -1,0 +1,122 @@
+name: validate
+
+# CI checks static correctness and the vendor-free upstream build only.
+# It deliberately does NOT claim to test USB printing: the physical acceptance
+# matrix in docs/testing-and-acceptance.md is a manual gate on the real host.
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  shell:
+    name: Shell scripts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq shellcheck
+      - name: POSIX syntax check
+        run: |
+          for f in scripts/*.sh; do
+            echo "sh -n $f"
+            sh -n "$f"
+          done
+      - name: shellcheck
+        run: shellcheck scripts/*.sh
+
+  systemd-and-config:
+    name: Systemd, nspawn and config files
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit syntax
+        run: |
+          set -e
+          # systemd-analyze verify takes unit files, not drop-ins: render the
+          # drop-in as a unit in a temp dir so its syntax is actually checked.
+          TMPD=$(mktemp -d)
+          cp config/systemd/systemd-nspawn@alpine-konica.service.d/override.conf \
+             "$TMPD/systemd-nspawn@alpine-konica.service"
+          OUT=$(systemd-analyze verify systemd/*.service systemd/*.timer \
+                "$TMPD/systemd-nspawn@alpine-konica.service" 2>&1 || true)
+          echo "$OUT"
+          if echo "$OUT" | grep -Eqi 'failed to parse|unknown key|unknown lvalue|unknown section'; then
+            echo "systemd syntax error" >&2
+            exit 1
+          fi
+          rm -rf "$TMPD"
+      - name: Required settings and files
+        run: |
+          python3 - <<'PY'
+          import pathlib, sys
+
+          root = pathlib.Path('.')
+          required = [
+              'README.md', 'IMPLEMENTATION_PLAN.md',
+              'docs/architecture.md', 'docs/security.md',
+              'docs/testing-and-acceptance.md', 'docs/troubleshooting.md',
+              'docs/bootc-integration.md', 'docs/upstream-pins.md',
+              'config/pins.env',
+              'config/nspawn/alpine-konica.nspawn',
+              'config/systemd/systemd-nspawn@alpine-konica.service.d/override.conf',
+              'config/ipp/get-printer-attributes.test',
+              'systemd/konica206-healthcheck.service',
+              'systemd/konica206-healthcheck.timer',
+              'udev/70-konica206.rules', 'cups/README.md',
+              'scripts/create-alpine-rootfs.sh',
+              'scripts/install-alpine-dependencies.sh',
+              'scripts/build-and-install-printer-app.sh',
+              'scripts/install-host-integration.sh',
+              'scripts/remove-host-integration.sh',
+              'scripts/health-check.sh',
+          ]
+          missing = [p for p in required if not (root / p).is_file()]
+          assert not missing, f"missing files: {missing}"
+
+          pins = (root / 'config/pins.env').read_text()
+          for key in ('ALPINE_VERSION', 'ALPINE_MINIROOTFS_SHA256', 'PAPPL_COMMIT',
+                      'KONICA206_NATIVE_ALPINE_COMMIT', 'KONICA_NATIVE_MUSL_COMMIT',
+                      'MACHINE_NAME', 'IPP_PORT', 'ROOTFS'):
+              assert f"{key}=" in pins, f"missing pin: {key}"
+
+          nspawn = (root / 'config/nspawn/alpine-konica.nspawn').read_text()
+          for line in ('[System]', '[Network]', '[Files]', 'Private=no',
+                       'VirtualEthernet=no', 'Bind=/dev/bus/usb'):
+              assert line in nspawn, f"missing nspawn setting: {line}"
+          assert not any(line.strip() == '[Exec]' for line in nspawn.splitlines()), \
+              "service design must be owned by the systemd drop-in"
+
+          override = (root / 'config/systemd/systemd-nspawn@alpine-konica.service.d/override.conf').read_text()
+          for line in ('Type=simple', 'ExecStart=', 'Restart=on-failure',
+                       '/usr/local/bin/konica206-native server'):
+              assert line in override, f"missing drop-in setting: {line}"
+
+          udev = (root / 'udev/70-konica206.rules').read_text()
+          assert '132b' in udev and '232b' in udev, "wrong USB id in udev rule"
+          print('config checks passed')
+          PY
+
+  renderer-alpine:
+    name: Vendor-free renderer build (Alpine ${{ matrix.alpine }})
+    runs-on: ubuntu-latest
+    container: alpine:${{ matrix.alpine }}
+    strategy:
+      matrix:
+        alpine: ['3.24.2']
+    steps:
+      - name: Install build dependencies
+        run: apk add --no-cache build-base cups-dev python3 git curl
+      - name: Read the pinned renderer revision
+        id: pins
+        run: |
+          curl -fsSL "https://raw.githubusercontent.com/${GITHUB_REPOSITORY}/${GITHUB_SHA}/config/pins.env" -o /tmp/pins.env
+          . /tmp/pins.env
+          echo "commit=$KONICA_NATIVE_MUSL_COMMIT" >> "$GITHUB_OUTPUT"
+      - name: Clone pinned renderer
+        run: git clone -q https://github.com/vinod2807/konica-native-musl.git renderer && git -C renderer checkout -q "${{ steps.pins.outputs.commit }}"
+      - name: Build and run vendor-free tests
+        run: |
+          cd renderer
+          make CC=cc
+          make check

@@ -1,0 +1,9 @@
+[Unit]
+Description=Check Konica 206 PAPPL IPP endpoint (127.0.0.1:8001)
+Documentation=https://github.com/vinod2807/konica206-alpine-nspawn
+Wants=systemd-nspawn@alpine-konica.service
+After=systemd-nspawn@alpine-konica.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/lib/konica206/health-check.sh
