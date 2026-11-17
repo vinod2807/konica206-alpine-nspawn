@@ -46,7 +46,7 @@ uses **only the drop-in**:
   runs that program as the container's main process; Alpine's OpenRC service is
   intentionally **not** used.
 - `config/nspawn/alpine-konica.nspawn` holds machine-level settings (hostname,
-  network namespace, USB binds). It has no `[Exec]` section, so there is a
+  network namespace, USB binds). It has no `ExecStart=` option, so there is a
   single place that decides how the app is started.
 
 `Type=simple` is set because the PAPPL process does not send readiness

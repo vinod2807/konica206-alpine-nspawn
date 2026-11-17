@@ -2,12 +2,14 @@
 # Installed by scripts/install-host-integration.sh to
 #   /etc/systemd/nspawn/alpine-konica.nspawn
 #
-# There is intentionally no [Exec] section here: the host systemd drop-in
+# There is intentionally no ExecStart= here: the host systemd drop-in
 # (config/systemd/systemd-nspawn@alpine-konica.service.d/override.conf) passes
 # the PAPPL executable as the container's main process. That keeps a single,
 # reviewable service design and avoids booting a second (OpenRC) init system.
 
-[System]
+[Exec]
+# Hostname is an [Exec] option; there is deliberately no ExecStart= here (the
+# host systemd drop-in owns how the PAPPL app is started).
 Hostname=alpine-konica
 
 [Network]

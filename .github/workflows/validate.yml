@@ -84,7 +84,7 @@ jobs:
           for line in ('[System]', '[Network]', '[Files]', 'Private=no',
                        'VirtualEthernet=no', 'Bind=/dev/bus/usb'):
               assert line in nspawn, f"missing nspawn setting: {line}"
-          assert not any(line.strip() == '[Exec]' for line in nspawn.splitlines()), \
+          assert not any(line.strip().startswith('ExecStart=') for line in nspawn.splitlines()), \
               "service design must be owned by the systemd drop-in"
 
           override = (root / 'config/systemd/systemd-nspawn@alpine-konica.service.d/override.conf').read_text()
