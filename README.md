@@ -79,7 +79,24 @@ sudo scripts/install-host-integration.sh
 
 # 5. Review docs/testing-and-acceptance.md, perform physical tests, then start:
 sudo systemctl start systemd-nspawn@alpine-konica.service
-/usr/local/lib/konica206/health-check.sh
+/var/lib/konica206-nspawn/health-check.sh
+```
+
+**No rpm-ostree overlay or package layering is used.** No host RPMs are
+installed, nothing is written under `/usr`, and no new bootc deployment is
+created. All state is in `/var/lib/machines/alpine-konica`,
+`/var/lib/konica206-nspawn` and config files under `/etc`. No reboot is needed.
+
+**Side-by-side testing:** if a printer application already uses port 8001 (as
+on the `fedora-bootc-konica206` image), pass `IPP_PORT=8002` to the install
+script so both can coexist. USB interface 1 is still opened per job, so only
+one application may print at a time; the existing service is never stopped by
+these scripts.
+
+```sh
+IPP_PORT=8002 sudo -E scripts/install-host-integration.sh
+sudo systemctl start systemd-nspawn@alpine-konica.service
+/var/lib/konica206-nspawn/health-check.sh
 ```
 
 Rollback at any time:

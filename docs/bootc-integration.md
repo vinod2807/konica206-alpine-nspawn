@@ -3,8 +3,15 @@
 ## Chosen model: A — host-managed mutable rootfs
 
 For this proof of concept the Alpine rootfs lives at
-`/var/lib/machines/alpine-konica`, **outside** the immutable bootc image. Only
-host service/configuration files are baked into a derived bootc image.
+`/var/lib/machines/alpine-konica`, **outside** the immutable bootc image.
+
+**Local install (this project's default): no rpm-ostree overlay, no package
+layering and no new bootc deployment.** `scripts/install-host-integration.sh`
+writes plain files under `/etc` and `/var`, both of which are already-writable
+persistent directories on a bootc host. No host RPMs are installed and nothing
+is written under `/usr`. Baking host files into a derived image is optional
+(useful for reproducible fleet deployment) and is described below; it is not
+required to run this on a local bootc machine.
 
 Why:
 
@@ -26,11 +33,16 @@ proprietary data):
 
 - `/etc/systemd/nspawn/alpine-konica.nspawn`
 - `/etc/systemd/system/systemd-nspawn@alpine-konica.service.d/override.conf`
-- `/etc/udev/rules.d/70-konica206.rules`
+- `/etc/udev/rules.d/75-konica206-nspawn.rules` (distinct name: do not shadow a
+  host-provided `70-konica206.rules` that may trigger queue setup)
 - `/etc/systemd/system/konica206-healthcheck.service`
 - `/etc/systemd/system/konica206-healthcheck.timer`
-- `/usr/local/lib/konica206/health-check.sh`
-- `/usr/local/lib/konica206/get-printer-attributes.test`
+- `/var/lib/konica206-nspawn/health-check.sh`
+- `/var/lib/konica206-nspawn/get-printer-attributes.test`
+
+The drop-in and health-check unit in the repo contain an `@IPP_PORT@` token that
+the install script substitutes with the chosen port (default 8001). A baked
+image must make the same substitution, or use the default port verbatim.
 
 Example derived-image `Containerfile` (from the repository root):
 
@@ -40,12 +52,12 @@ FROM <your-existing-fedora-bootc-image>
 COPY config/nspawn/alpine-konica.nspawn /etc/systemd/nspawn/alpine-konica.nspawn
 COPY config/systemd/systemd-nspawn@alpine-konica.service.d/override.conf \
      /etc/systemd/system/systemd-nspawn@alpine-konica.service.d/override.conf
-COPY udev/70-konica206.rules /etc/udev/rules.d/70-konica206.rules
+COPY udev/70-konica206.rules /etc/udev/rules.d/75-konica206-nspawn.rules
 COPY systemd/konica206-healthcheck.service /etc/systemd/system/konica206-healthcheck.service
 COPY systemd/konica206-healthcheck.timer /etc/systemd/system/konica206-healthcheck.timer
-COPY scripts/health-check.sh /usr/local/lib/konica206/health-check.sh
-COPY config/ipp/get-printer-attributes.test /usr/local/lib/konica206/get-printer-attributes.test
-RUN chmod 0755 /usr/local/lib/konica206/health-check.sh
+COPY scripts/health-check.sh /var/lib/konica206-nspawn/health-check.sh
+COPY config/ipp/get-printer-attributes.test /var/lib/konica206-nspawn/get-printer-attributes.test
+RUN chmod 0755 /var/lib/konica206-nspawn/health-check.sh
 
 RUN systemctl enable systemd-nspawn@alpine-konica.service konica206-healthcheck.timer
 ```

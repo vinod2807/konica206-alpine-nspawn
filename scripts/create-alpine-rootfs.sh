@@ -61,6 +61,13 @@ EOF
 
 printf '%s\n' "$MACHINE_NAME" > "$STAGE/etc/hostname"
 
+# apk needs working DNS inside the chroot. The minirootfs may ship an empty or
+# dangling resolv.conf; seed it from the host (plain file, no host service used).
+rm -f "$STAGE/etc/resolv.conf"
+if [ -r /etc/resolv.conf ]; then
+    cp -fL /etc/resolv.conf "$STAGE/etc/resolv.conf"
+fi
+
 say "installing rootfs to $ROOTFS"
 mkdir -p "$(dirname "$ROOTFS")"
 mv "$STAGE" "$ROOTFS"

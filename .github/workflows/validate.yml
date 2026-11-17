@@ -89,8 +89,9 @@ jobs:
 
           override = (root / 'config/systemd/systemd-nspawn@alpine-konica.service.d/override.conf').read_text()
           for line in ('Type=simple', 'ExecStart=', 'Restart=on-failure',
-                       '/usr/local/bin/konica206-native server'):
+                       '/usr/local/bin/konica206-native server', '@IPP_PORT@'):
               assert line in override, f"missing drop-in setting: {line}"
+          assert '@IPP_PORT@' in (root / 'systemd/konica206-healthcheck.service').read_text()
 
           udev = (root / 'udev/70-konica206.rules').read_text()
           assert '132b' in udev and '232b' in udev, "wrong USB id in udev rule"

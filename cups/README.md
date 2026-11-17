@@ -35,7 +35,7 @@ Important:
 
 ```sh
 ipptool -tv ipp://localhost:631/printers/konica206-ipp \
-  /usr/local/lib/konica206/get-printer-attributes.test
+  /var/lib/konica206-nspawn/get-printer-attributes.test
 ```
 
 Driverless discovery/capabilities can also be checked with

@@ -80,9 +80,9 @@ binary cannot start (missing library — check `ldd` inside the rootfs).
 ## Health check is unhealthy
 
 ```sh
-/usr/local/lib/konica206/health-check.sh
+/var/lib/konica206-nspawn/health-check.sh
 ipptool -tv ipp://127.0.0.1:8001/ipp/print/konica206 \
-  /usr/local/lib/konica206/get-printer-attributes.test
+  /var/lib/konica206-nspawn/get-printer-attributes.test
 ```
 
 Install `cups-ipptool` on Fedora for a real check. The `curl` fallback only

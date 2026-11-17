@@ -6,4 +6,6 @@ After=systemd-nspawn@alpine-konica.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/lib/konica206/health-check.sh
+# Substituted by scripts/install-host-integration.sh.
+Environment=IPP_PORT=@IPP_PORT@
+ExecStart=/var/lib/konica206-nspawn/health-check.sh

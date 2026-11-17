@@ -13,7 +13,7 @@ machinectl status alpine-konica
 
 # IPP endpoint
 ipptool -tv ipp://127.0.0.1:8001/ipp/print/konica206 \
-  /usr/local/lib/konica206/get-printer-attributes.test
+  /var/lib/konica206-nspawn/get-printer-attributes.test
 
 # Vendor-free upstream tests (run inside the rootfs before build tools are removed)
 # make check          in konica206-native-alpine

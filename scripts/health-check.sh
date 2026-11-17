@@ -2,15 +2,20 @@
 # Verify that the PAPPL IPP endpoint is answering on localhost.
 # Used by konica206-healthcheck.service / .timer; also useful by hand.
 #
-#   /usr/local/lib/konica206/health-check.sh
+#   /var/lib/konica206-nspawn/health-check.sh
 #   IPP_PORT=8001 sh scripts/health-check.sh        # from a source checkout
 set -u
 
-PORT=${IPP_PORT:-8001}
-URL="ipp://127.0.0.1:$PORT/ipp/print/konica206"
 HERE=$(cd "$(dirname "$0")" && pwd)
-# Installed layout: test file sits next to this script. Source checkout: it is
-# under config/ipp/ instead.
+# Precedence: environment, then the port file written at install time, then 8001.
+PORT=${IPP_PORT:-}
+if [ -z "$PORT" ] && [ -r "$HERE/port" ]; then
+    PORT=$(cat "$HERE/port")
+fi
+PORT=${PORT:-8001}
+URL="ipp://127.0.0.1:$PORT/ipp/print/konica206"
+# Installed layout: test file sits next to this script (/var/lib/konica206-nspawn).
+# Source checkout: it is under config/ipp/ instead.
 if [ -r "$HERE/get-printer-attributes.test" ]; then
     DEFAULT_TEST="$HERE/get-printer-attributes.test"
 else

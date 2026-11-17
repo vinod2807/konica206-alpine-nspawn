@@ -85,7 +85,7 @@ web-interface restrictions described in [security.md](security.md).
 
 `konica206-healthcheck.timer` runs `konica206-healthcheck.service` two minutes
 after boot and every five minutes thereafter. The service runs
-`/usr/local/lib/konica206/health-check.sh`, which issues a `GetPrinterAttributes`
+`/var/lib/konica206-nspawn/health-check.sh`, which issues a `GetPrinterAttributes`
 request against the local IPP endpoint with `ipptool`. A shallow `curl` probe is
 used as a fallback when `ipptool` is unavailable, but `cups-ipptool` is
 recommended for a meaningful check.
