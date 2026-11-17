@@ -1,9 +1,10 @@
 #!/bin/sh
 # Verify that the PAPPL IPP endpoint is answering on localhost.
 # Used by konica206-healthcheck.service / .timer; also useful by hand.
+# Retries briefly, because the app can take a few seconds to bind its listener.
 #
 #   /var/lib/konica206-nspawn/health-check.sh
-#   IPP_PORT=8001 sh scripts/health-check.sh        # from a source checkout
+#   IPP_PORT=8002 sh scripts/health-check.sh     # from a source checkout
 set -u
 
 HERE=$(cd "$(dirname "$0")" && pwd)
@@ -30,40 +31,41 @@ if command -v systemctl >/dev/null 2>&1; then
     fi
 fi
 
-if command -v ipptool >/dev/null 2>&1 && [ -r "$TEST_FILE" ]; then
-    OUT=$(ipptool -t -q "$URL" "$TEST_FILE" 2>&1) || {
-        echo "UNHEALTHY: ipptool could not reach $URL" >&2
-        echo "$OUT" >&2
-        exit 1
-    }
-    case "$OUT" in
-        *printer-name*)
+probe() {
+    if command -v ipptool >/dev/null 2>&1 && [ -r "$TEST_FILE" ]; then
+        OUT=$(ipptool -t -q "$URL" "$TEST_FILE" 2>&1) || return 1
+        case "$OUT" in
+            *printer-name*) return 0 ;;
+            *) return 1 ;;
+        esac
+    fi
+
+    # Shallow fallback: any HTTP response means the listener is up. Use ipptool
+    # for a real check (the cups-ipptool package on Fedora).
+    if command -v curl >/dev/null 2>&1; then
+        CODE=$(curl -sS -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/ipp/print/konica206" 2>/dev/null || true)
+        case "$CODE" in
+            000|'') return 1 ;;
+            *) return 0 ;;
+        esac
+    fi
+    return 2
+}
+
+n=0
+while [ "$n" -lt 10 ]; do
+    if probe; then
+        if command -v ipptool >/dev/null 2>&1 && [ -r "$TEST_FILE" ]; then
             echo "HEALTHY: $URL answered GetPrinterAttributes"
-            exit 0
-            ;;
-        *)
-            echo "UNHEALTHY: unexpected response from $URL" >&2
-            echo "$OUT" >&2
-            exit 1
-            ;;
-    esac
-fi
+        else
+            echo "HEALTHY (shallow HTTP probe only; ipptool not available)"
+        fi
+        exit 0
+    fi
+    n=$((n + 1))
+    [ "$n" -lt 10 ] && sleep 1
+done
 
-# Shallow fallback: any HTTP response means the listener is up. Use ipptool
-# for a real check (the cups-ipptool package on Fedora).
-if command -v curl >/dev/null 2>&1; then
-    CODE=$(curl -sS -m 5 -o /dev/null -w '%{http_code}' "http://127.0.0.1:$PORT/ipp/print/konica206" 2>/dev/null || true)
-    case "$CODE" in
-        000|'')
-            echo "UNHEALTHY: no HTTP response from 127.0.0.1:$PORT" >&2
-            exit 1
-            ;;
-        *)
-            echo "HEALTHY (shallow HTTP probe only; install ipptool for a full check)"
-            exit 0
-            ;;
-    esac
-fi
-
-echo "UNHEALTHY: neither ipptool nor curl is available" >&2
+echo "UNHEALTHY: $URL did not respond after 10 attempts" >&2
+[ -n "${OUT:-}" ] && echo "$OUT" >&2
 exit 1
