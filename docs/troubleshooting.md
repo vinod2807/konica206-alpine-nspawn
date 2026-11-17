@@ -17,6 +17,13 @@ Common causes:
   instance (often the old `konica206uri` app).
 - The drop-in was not reloaded after an edit: `systemctl daemon-reload`.
 
+## Log says "Unable to initialize DNS-SD: Daemon not running"
+
+PAPPL tries to register the printer with Avahi at start-up. The Alpine rootfs
+intentionally contains no `avahi-daemon`, so this message is expected and
+non-fatal: the localhost IPP listener works normally. Only network discovery
+advertisement is absent, which is fine for a local CUPS proxy queue.
+
 ## USB device not found
 
 ```sh
