@@ -81,7 +81,7 @@ jobs:
               assert f"{key}=" in pins, f"missing pin: {key}"
 
           nspawn = (root / 'config/nspawn/alpine-konica.nspawn').read_text()
-          for line in ('[System]', '[Network]', '[Files]', 'Private=no',
+          for line in ('[Exec]', '[Network]', '[Files]', 'Private=no',
                        'VirtualEthernet=no', 'Bind=/dev/bus/usb'):
               assert line in nspawn, f"missing nspawn setting: {line}"
           assert not any(line.strip().startswith('ExecStart=') for line in nspawn.splitlines()), \
