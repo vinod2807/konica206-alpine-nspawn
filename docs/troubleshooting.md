@@ -40,6 +40,32 @@ ipptool -tv ipp://127.0.0.1:8001/ipp/print/konica206 get-printer-attributes.test
   `config/nspawn/alpine-konica.nspawn` after verifying it on the target. Do not
   bind all of `/sys` or `/dev` as a shortcut.
 
+## "found 132b:232b but cannot open it" even though the node is visible
+
+The bind mount in `alpine-konica.nspawn` makes the device node visible, but
+nspawn's closed device cgroup policy still denies `open()` with `EPERM`. The
+service drop-in must also allow the device group:
+
+```
+DeviceAllow=char-usb_device rwm
+```
+
+`usb_device` is the major-189 group from `/proc/devices`. Wildcards apply to
+group names, so `char-189:*` is not valid and silently fails to allow anything.
+
+## "filter not executable: .../245igdirf"
+
+The PAPPL app is falling back to the legacy vendor filter path. Its settings
+must be passed to the container with `--setenv=` on the `systemd-nspawn`
+command line in the drop-in:
+
+```
+--setenv=KONICA_VENDOR_FILTER=/usr/local/lib/konica/konica-native
+--setenv=KONICA_PDF_RENDERER=builtin
+```
+
+`Environment=` in the host unit does not reach PID 1 inside the container.
+
 ## USB interface already claimed
 
 If the log shows a `claim_interface` failure, another process owns interface 1.

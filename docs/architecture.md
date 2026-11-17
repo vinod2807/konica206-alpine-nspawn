@@ -75,9 +75,17 @@ web-interface restrictions described in [security.md](security.md).
   by udev automatically.
 - The nspawn config binds `/dev/bus/usb` (the USB device tree, not all of
   `/dev`) and `/sys/bus/usb/devices` read-only for libusb enumeration.
-- The PAPPL app runs as root inside the container, so it can open the node
-  regardless of its mode. No user namespace is used, so no capability mapping
-  is required.
+- A bind mount alone is not enough: nspawn applies a closed device cgroup
+  policy, so `libusb_open()` fails with `EPERM` unless the device group is also
+  allowed in the service unit. The drop-in therefore sets
+  `DeviceAllow=char-usb_device rwm` (`usb_device` is the major-189 group listed
+  in `/proc/devices`). Note that `DeviceAllow=char-189:*` is **not** valid
+  syntax — the specifier is a group name, not a numeric major.
+- The PAPPL app runs as root inside the container. No user namespace is used,
+  so no capability mapping is required. App settings such as
+  `KONICA_VENDOR_FILTER` and `KONICA_PDF_RENDERER` must be passed with nspawn's
+  `--setenv=` in `ExecStart`; a service `Environment=` line applies to nspawn
+  on the host and is **not** inherited by PID 1 inside the container.
 - If libusb cannot enumerate the printer on the target, this is the first thing
   to verify; see [troubleshooting.md](troubleshooting.md#usb-device-not-found).
 
