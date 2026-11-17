@@ -20,9 +20,10 @@ need_root() { [ "$(id -u)" -eq 0 ] || die "run as root"; }
 
 need_root
 
+SERIES=${ALPINE_VERSION%.*}   # 3.24.2 -> 3.24 (Alpine release directories use v3.24)
 TARBALL_NAME="alpine-minirootfs-$ALPINE_VERSION-$ALPINE_ARCH.tar.gz"
 TARBALL="$CACHE_DIR/$TARBALL_NAME"
-URL="$ALPINE_BASEURL/v$ALPINE_VERSION/releases/$ALPINE_ARCH/$TARBALL_NAME"
+URL="$ALPINE_BASEURL/v$SERIES/releases/$ALPINE_ARCH/$TARBALL_NAME"
 
 mkdir -p "$CACHE_DIR"
 if [ ! -f "$TARBALL" ]; then
@@ -55,8 +56,8 @@ tar -xzf "$TARBALL" -C "$STAGE"
 # 'latest' tree. This is what makes later installs reproducible.
 mkdir -p "$STAGE/etc/apk"
 cat > "$STAGE/etc/apk/repositories" <<EOF
-$ALPINE_BASEURL/v$ALPINE_VERSION/main
-$ALPINE_BASEURL/v$ALPINE_VERSION/community
+$ALPINE_BASEURL/v$SERIES/main
+$ALPINE_BASEURL/v$SERIES/community
 EOF
 
 printf '%s\n' "$MACHINE_NAME" > "$STAGE/etc/hostname"
