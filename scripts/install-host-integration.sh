@@ -44,6 +44,18 @@ udevadm control --reload || true
 
 say "installing health check under /var (bootc-safe, no /usr writes)"
 install -D -m 755 "$HERE/scripts/health-check.sh" "$HELPER_DIR/health-check.sh"
+# systemd runs as init_t, which may not execute a script that inherits the
+# var_lib_t label from /var/lib (avc: denied { execute } -> status=203/EXEC).
+# Label it bin_t and persist the rule so it survives a full filesystem relabel.
+if command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled; then
+    if command -v semanage >/dev/null 2>&1; then
+        semanage fcontext -a -t bin_t "$HELPER_DIR/health-check.sh" 2>/dev/null || \
+            semanage fcontext -m -t bin_t "$HELPER_DIR/health-check.sh" || true
+    fi
+    if command -v restorecon >/dev/null 2>&1; then
+        restorecon -v "$HELPER_DIR/health-check.sh" || true
+    fi
+fi
 install -D -m 644 "$HERE/config/ipp/get-printer-attributes.test" "$HELPER_DIR/get-printer-attributes.test"
 printf '%s\n' "$IPP_PORT" > "$HELPER_DIR/port"
 chmod 644 "$HELPER_DIR/port"
