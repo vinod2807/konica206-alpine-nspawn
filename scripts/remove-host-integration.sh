@@ -20,6 +20,7 @@ need_root() { [ "$(id -u)" -eq 0 ] || die "run as root"; }
 need_root
 
 UNIT="systemd-nspawn@$MACHINE_NAME.service"
+HELPER_DIR=/var/lib/konica206-nspawn
 
 say "stopping and disabling units"
 systemctl disable --now "$UNIT" konica206-healthcheck.timer konica206-healthcheck.service 2>/dev/null || true
@@ -32,7 +33,13 @@ rmdir "/etc/systemd/system/$UNIT.d" 2>/dev/null || true
 rm -f /etc/udev/rules.d/75-konica206-nspawn.rules
 rm -f /etc/systemd/system/konica206-healthcheck.service
 rm -f /etc/systemd/system/konica206-healthcheck.timer
-rm -rf /var/lib/konica206-nspawn
+rm -rf "$HELPER_DIR"
+
+if command -v selinuxenabled >/dev/null 2>&1 && selinuxenabled &&
+   command -v semanage >/dev/null 2>&1; then
+    say "removing SELinux fcontext rule for the health check"
+    semanage fcontext -d "$HELPER_DIR/health-check.sh" 2>/dev/null || true
+fi
 
 if [ "${KONICA_REMOVE_ROOTFS:-0}" = 1 ] && [ -e "$ROOTFS" ]; then
     DISABLED="$ROOTFS.disabled.$(date -u +%Y%m%dT%H%M%SZ)"
